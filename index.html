@@ -230,7 +230,7 @@ function quoteText(){
     `Cliente: ${d.nombre}`, `Cédula/RIF: ${d.doc}`, `WhatsApp: ${d.tel}`, `Envío: ${d.envio}`, ``,
     ...t.L.map(x=>`• ${x.q} × ${x.n} (${x.p}) — ${x.usd==null?"consultar":money(x.usd*x.q)}`), ``,
     `Subtotal: ${money(t.usd)}`, `Embalaje: ${money(t.emb)}`, `*Total: ${money(t.total)}* (en Bs a tasa BCV del día)`, t.pend?`Productos con precio por confirmar: ${t.pend}`:"",
-    d.notas?`\nNotas: ${d.notas}`:"", ``, `Código: ${t.L.map(x=>x.id+"*"+x.q).join(",")}`].filter((x,i,a)=>!(x===""&&a[i-1]==="")).join("\n");
+    d.notas?`\nNotas: ${d.notas}`:""].filter((x,i,a)=>!(x===""&&a[i-1]==="")).join("\n").trim();
 }
 function renderQuote(){
   const t = totals(), d = S.d, txt = quoteText();
