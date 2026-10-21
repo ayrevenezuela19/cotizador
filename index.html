@@ -38,6 +38,7 @@ header.top p{margin:6px 0 0;color:var(--soft);max-width:60ch}
 .steps span.on{background:var(--forest);color:var(--on-forest)}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:22px;align-items:start}
 .tools{display:grid;gap:10px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding-block:8px;z-index:3}
+.row .n .al{font-size:12px;font-weight:400;color:var(--muted,#6b6b6b);line-height:1.3;margin-top:1px}
 .search{width:100%;border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:11px 16px}
 .chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
 .chips button{flex:none;border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--soft);white-space:nowrap}
@@ -144,7 +145,51 @@ const WA = "584247535665", WA_TXT = "+58 424 753 5665", EMBALAJE = 0.5;
 const FORM = "https://docs.google.com/forms/d/e/1FAIpQLSdljbwG13Bop8dU1hVHq4u3xF_qaOEmM6qfxNVA401OQzOWLQ/viewform";
 const COND = ["Precios en dólares, pagaderos en bolívares a la tasa BCV del día del pago.","Toda cotización está sujeta a confirmación de disponibilidad.","Si pides ficha técnica, revísala antes de confirmar: hecho el pedido no hay devoluciones de dinero ni de materia prima.","Los envíos salen según la programación del mes por MRW (preferiblemente), Zoom o Liberty Express. Te avisamos el día del envío.","El embalaje tiene un costo adicional de $0,50 por pedido.","Todos los pedidos salen verificados desde Mérida; no respondemos por la manipulación en la agencia.","Entregas en Mérida: centro, zona norte o chocolatería Deleit. Retiros en La Milagrosa."];
 const slug = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
-const ITEMS = []; CAT.forEach(c=>c.i.forEach(r=>ITEMS.push({id:slug(r[0]+" "+r[1]),cat:c.c,n:r[0],p:r[1],eur:r[2],usd:r[3]})));
+const ALIAS = {
+ "SCI":"Isetionato de cocoílo de sodio · Sodium Cocoyl Isethionate",
+ "SCS":"Coco sulfato de sodio · Sodium Coco Sulfate",
+ "BTMS-50":"Behentrimonium methosulfate · acondicionador catiónico",
+ "BTMS-25":"Behentrimonium methosulfate · acondicionador catiónico",
+ "Betaína de coco":"Cocamidopropyl betaine · cocobetaína",
+ "Coco glucósido":"Coco glucoside",
+ "Decyl glucoside":"Decil glucósido",
+ "Cocoamida DEA":"Cocamide DEA · espesante de champú",
+ "Genamin 50 %":"Acondicionador catiónico",
+ "Olivem 1000":"Cetearyl olivate, sorbitan olivate · emulsionante",
+ "Cera emulsionante NF":"Emulsifying wax NF · emulsionante",
+ "Tween 20":"Polysorbate 20 · polisorbato · solubilizante",
+ "Tween 80":"Polysorbate 80 · polisorbato · solubilizante",
+ "Ceteareth-12":"Emulsionante",
+ "Ceteareth-20":"Emulsionante",
+ "Goma xantana":"Xanthan gum · espesante",
+ "Hidroxietilcelulosa":"Hydroxyethylcellulose · HEC · espesante",
+ "Rokonsal":"Conservante",
+ "Sharomix":"Conservante",
+ "Cosgard":"Conservante",
+ "Benzoato de sodio":"Conservante · sodium benzoate",
+ "Sorbato de potasio":"Conservante · potassium sorbate",
+ "D-pantenol":"Pantenol · provitamina B5 · panthenol",
+ "Vitamina B3 (niacinamida)":"Niacinamide · nicotinamida",
+ "Vitamina C":"Ácido ascórbico · ascorbic acid",
+ "Vitamina E":"Tocoferol · tocopherol",
+ "Ascorbyl palmitate":"Palmitato de ascorbilo · vitamina C liposoluble",
+ "Ácido hialurónico 1 %":"Hialuronato de sodio · sodium hyaluronate",
+ "Alantoína":"Allantoin",
+ "Lactato de sodio":"Sodium lactate",
+ "Sosa cáustica en escamas":"Hidróxido de sodio · NaOH · soda cáustica",
+ "Hidróxido de potasio":"KOH · potasa",
+ "Miristato de isopropilo":"Isopropyl myristate · IPM",
+ "Aceite de coco fraccionado":"Caprylic/capric triglyceride · MCT",
+ "Clorhidróxido de aluminio":"Aluminum chlorohydrate · antitranspirante",
+ "Ricinoleato de zinc":"Zinc ricinoleate · desodorante",
+ "Piritionato de zinc":"Zinc pyrithione · anticaspa",
+ "Dióxido de titanio":"Titanium dioxide",
+ "Óxido de zinc":"Zinc oxide",
+ "Alcohol cetílico":"Cetyl alcohol",
+ "Alcohol cetoestearílico":"Cetearyl alcohol",
+ "Alcohol estearílico":"Stearyl alcohol"
+};
+const ITEMS = []; CAT.forEach(c=>c.i.forEach(r=>ITEMS.push({id:slug(r[0]+" "+r[1]),cat:c.c,n:r[0],p:r[1],eur:r[2],usd:r[3],al:ALIAS[r[0]]||""})));
 const byId = Object.fromEntries(ITEMS.map(x=>[x.id,x]));
 const S = {step:1, q:"", cat:"Todas", cart:{}, d:{nombre:"",doc:"",tel:"",envio:"MRW",notas:""}, num:"", fecha:"", err:"", sent:false};
 try{ const s = JSON.parse(localStorage.getItem("cot-ayre2")||"null"); if (s){ S.cart = Object.fromEntries(Object.entries(s.cart||{}).filter(([k])=>byId[k])); Object.assign(S.d, s.d||{}); } }catch(e){}
@@ -174,7 +219,7 @@ function itemRow(x){
   const pr = x.usd==null ? `<div class="price"><span class="ask">Consultar</span></div>` : `<div class="price">${money(x.usd)}</div>`;
   const ctl = q ? `<div class="qty"><button type="button" data-d="${x.id}" aria-label="Quitar uno de ${esc(x.n)}">−</button><input id="q-${x.id}" data-q="${x.id}" inputmode="numeric" value="${q}" aria-label="Cantidad de ${esc(x.n)}"><button type="button" data-i="${x.id}" aria-label="Añadir uno de ${esc(x.n)}">+</button></div>`
                 : `<button class="add" type="button" data-i="${x.id}">Añadir</button>`;
-  return `<div class="row ${q?"sel":""}" id="r-${x.id}"><div class="n">${esc(x.n)}<div class="p">${esc(x.p)}</div></div>${pr}${ctl}</div>`;
+  return `<div class="row ${q?"sel":""}" id="r-${x.id}"><div class="n">${esc(x.n)}${x.al?`<div class="al">${esc(x.al)}</div>`:""}<div class="p">${esc(x.p)}</div></div>${pr}${ctl}</div>`;
 }
 function renderCatalog(){
   const cats = ["Todas", ...CAT.map(c=>c.c)];
@@ -189,7 +234,7 @@ function renderCatalog(){
 }
 function drawCats(){
   const nq = norm(S.q.trim());
-  const groups = CAT.map(c=>({c:c.c, items:ITEMS.filter(x=>x.cat===c.c && (S.cat==="Todas"||S.cat===c.c) && (!nq || norm(x.n+" "+x.cat).includes(nq)))})).filter(g=>g.items.length);
+  const groups = CAT.map(c=>({c:c.c, items:ITEMS.filter(x=>x.cat===c.c && (S.cat==="Todas"||S.cat===c.c) && (!nq || norm(x.n+" "+x.cat+" "+x.al).includes(nq)))})).filter(g=>g.items.length);
   $("#cats").innerHTML = groups.length ? groups.map(g=>`<section class="cat"><h2>${esc(g.c)}<small>${g.items.length} ${g.items.length===1?"producto":"productos"}</small></h2><div class="list">${g.items.map(itemRow).join("")}</div></section>`).join("")
     : `<div class="empty">No encontramos «${esc(S.q)}» en la lista. Escríbenos por WhatsApp al ${WA_TXT} y te decimos si lo conseguimos.</div>`;
 }
