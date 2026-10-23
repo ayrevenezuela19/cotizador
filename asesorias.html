@@ -62,7 +62,7 @@ h2.sec{font-family:var(--display);font-weight:400;font-size:24px;margin:0 0 4px;
 .day .dn{font-family:var(--display);font-size:21px;color:var(--forest);line-height:1.1}
 .day .dd{font-size:12.5px;color:var(--soft);font-weight:700}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
-.slot{border:1.5px solid var(--teal);background:var(--teal-bg);color:var(--teal-ink);border-radius:999px;padding:7px 12px;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;min-width:86px}
+.slot{border:1.5px solid var(--teal);background:var(--teal-bg);color:var(--teal-ink);border-radius:999px;padding:7px 12px;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;min-width:118px}
 .slot:hover{background:color-mix(in srgb,var(--teal) 22%,var(--paper))}
 .slot[aria-pressed="true"]{background:var(--forest);border-color:var(--forest);color:var(--on-forest)}
 .slot:disabled{border-color:var(--line);background:var(--sunk);color:var(--soft);text-decoration:line-through;cursor:default;opacity:.75}
@@ -171,6 +171,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const pad = n => String(n).padStart(2, "0");
+const rango = h => `${h}:00 – ${h + S.dur}:00`;
 const h12 = h => { const s = h < 12 ? "a. m." : "p. m."; const x = h % 12 || 12; return `${x}:00 ${s}`; };
 
 /* Fechas en hora de Venezuela (UTC−4, sin horario de verano), sin importar dónde esté quien abre la página */
@@ -220,7 +221,7 @@ function renderAgenda() {
   <div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>
   <div class="grid"><section>
     <h2 class="sec">Elige el día y la hora</h2>
-    <div class="note">Las horas en gris ya están reservadas${S.dur === 2 ? " o no dejan espacio para 2 horas seguidas" : ""}. Se reserva con al menos ${ANTICIPACION_HORAS} horas de anticipación.</div>
+    <div class="note">Todas las horas son en la mañana, hora de Venezuela. Las horas en gris ya están reservadas${S.dur === 2 ? " o no dejan espacio para 2 horas seguidas" : ""}. Se reserva con al menos ${ANTICIPACION_HORAS} horas de anticipación.</div>
     <div class="dur" role="group" aria-label="Duración"><button type="button" data-dur="1" aria-pressed="${S.dur === 1}">1 hora · ${PRECIO_HORA} $</button><button type="button" data-dur="2" aria-pressed="${S.dur === 2}">Pack 2 horas · ${PRECIO_PACK} $</button></div>
     ${semanas.length ? semanas.map(w => `<div class="week"><h3>Semana del ${w.lunes.getUTCDate()} de ${MESES[w.lunes.getUTCMonth()]}</h3><div class="days">${w.days.map(dayCard).join("")}</div></div>`).join("")
       : `<div class="panel">No hay horas disponibles en las próximas semanas. Escríbenos por WhatsApp al ${WA_TXT}.</div>`}
@@ -232,7 +233,7 @@ function dayCard(d) {
   const any = d.slots.some(s => puede(d, s.h));
   return `<div class="day"><div class="dh"><span class="dn">${DIAS[d.wd][0].toUpperCase() + DIAS[d.wd].slice(1)} ${d.t.getUTCDate()}</span><span class="dd">${MESES[d.t.getUTCMonth()]}</span></div>
   <div class="slots">${d.slots.map(s => { const ok = puede(d, s.h), on = S.pick && S.pick.day.k === d.k && S.pick.h === s.h;
-    return `<button type="button" class="slot" data-k="${d.k}" data-h="${s.h}" aria-pressed="${!!on}" ${ok ? "" : "disabled"} aria-label="${esc(fechaLarga(d.t))}, ${h12(s.h)}${ok ? "" : ", no disponible"}">${h12(s.h)}</button>`; }).join("")}</div>
+    return `<button type="button" class="slot" data-k="${d.k}" data-h="${s.h}" aria-pressed="${!!on}" ${ok ? "" : "disabled"} aria-label="${esc(fechaLarga(d.t))}, de ${h12(s.h)} a ${h12(s.h + S.dur)}${ok ? "" : ", no disponible"}">${rango(s.h)}</button>`; }).join("")}</div>
   ${any ? "" : `<div class="full">Sin horas libres${S.dur === 2 ? " para 2 horas seguidas" : ""}</div>`}</div>`;
 }
 function drawSheet() {
@@ -249,7 +250,7 @@ function renderForm() {
     <div><div class="eyebrow">Paso 2</div><h2 class="sec" style="font-size:28px;margin-top:4px">¿Quién toma la asesoría?</h2>
     <p class="note" style="margin:4px 0 0">${esc(cuando())} · ${total()} $</p></div>
     <div class="f2">${f("nombre", "Nombre", "text", "Tu nombre")}${f("apellido", "Apellido", "text", "Tu apellido")}</div>
-    <div class="f2">${f("tel", "Teléfono (WhatsApp)", "tel", "0414 123 4567")}${f("correo", "Correo", "email", "Para enviarte el enlace", true)}</div>
+    <div class="f2">${f("tel", "Teléfono (WhatsApp)", "tel", "0414 123 4567")}${f("correo", "Correo", "email", "Aquí te llega la confirmación")}</div>
     <div class="f2"><label class="f">Modalidad<select id="d-modalidad">${["Videollamada", "Presencial en Mérida"].map(o => `<option ${o === d.modalidad ? "selected" : ""}>${o}</option>`).join("")}</select></label>
       <label class="f">Motivo de la asesoría<select id="d-motivo"><option value="">Elige un motivo</option>${MOTIVOS.map(o => `<option ${o === d.motivo ? "selected" : ""}>${o}</option>`).join("")}</select></label></div>
     <label class="f">Cuéntanos más<textarea id="d-detalle" placeholder="¿Qué producto estás formulando? ¿Qué problema tienes? Si tienes la fórmula, puedes mandarla después por WhatsApp.">${esc(d.detalle)}</textarea></label>
@@ -259,7 +260,8 @@ function renderForm() {
   $("#form").addEventListener("change", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); } });
   $("#form").addEventListener("submit", e => {
     e.preventDefault();
-    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
+    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
+    if (!miss.length && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.d.correo.trim())) { S.err = "Revisa tu correo: debe tener la forma nombre@correo.com."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     if (miss.length) { S.err = "Falta " + miss.join(", ") + "."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     S.err = ""; const n = nowVE();
     S.num = "AS-" + String(n.getUTCFullYear()).slice(2) + pad(n.getUTCMonth() + 1) + pad(n.getUTCDate()) + "-" + pad(n.getUTCHours()) + pad(n.getUTCMinutes());
@@ -269,21 +271,22 @@ function renderForm() {
 function texto() {
   const d = S.d;
   return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Plan: ${S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas (incluye material de apoyo)"}`, `Modalidad: ${d.modalidad}`, `*Total: ${total()} $*`, ``,
-    `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, d.correo ? `Correo: ${d.correo}` : null, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
+    `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
 function renderResumen() {
   const d = S.d, txt = texto(), wa = "https://wa.me/" + WA + "?text=" + encodeURIComponent(txt);
   $("#app").innerHTML = `<div style="display:grid;gap:16px">
   <div class="next">
-    <p class="aviso"><b>Falta un paso:</b> envíanos la reserva por WhatsApp. Te confirmamos la hora y te pasamos los datos de pago.</p>
+    <p class="aviso"><b>Falta un paso:</b> envíanos la reserva por WhatsApp. Te pasamos los datos de pago y, al confirmarlo, te llega la confirmación a tu correo.</p>
     <div class="ns"><span class="nn">1</span><div><b>Envía tu reserva por WhatsApp</b><p class="note">La hora queda apartada para ti cuando confirmamos el pago.</p></div><a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
-    <div class="ns"><span class="nn">2</span><div><b>Prepara tu consulta</b><p class="note">Si tienes la fórmula, fotos del producto o la ficha técnica de algún ingrediente, mándalos por el mismo chat.</p></div></div>
+    <div class="ns"><span class="nn">2</span><div><b>Recibe la confirmación en tu correo</b><p class="note">Al confirmar el pago te enviamos a ${esc(d.correo)} la invitación con la fecha, la hora y, si es por videollamada, el enlace para conectarte.</p></div></div>
+    <div class="ns"><span class="nn">3</span><div><b>Prepara tu consulta</b><p class="note">Si tienes la fórmula, fotos del producto o la ficha técnica de algún ingrediente, mándalos por el mismo chat.</p></div></div>
   </div>
   <article class="doc" aria-label="Reserva">
     <div class="dh"><div><div class="eyebrow">Insumos Ayre · Asesorías</div><h2>Reserva de asesoría</h2></div><div class="meta">N.º <b>${S.num}</b><br>WhatsApp ${WA_TXT}</div></div>
     <div class="when"><b>${esc(cuando())}</b><span>${total()} $</span></div>
-    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div>${d.correo ? `<div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div>` : ""}<div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
+    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
     ${d.detalle ? `<p style="margin:0"><b>Detalle:</b> ${esc(d.detalle)}</p>` : ""}
     <ul class="cond">${COND.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
   </article>
