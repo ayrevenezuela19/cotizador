@@ -62,7 +62,7 @@ h2.sec{font-family:var(--display);font-weight:400;font-size:24px;margin:0 0 4px;
 .day .dn{font-family:var(--display);font-size:21px;color:var(--forest);line-height:1.1}
 .day .dd{font-size:12.5px;color:var(--soft);font-weight:700}
 .slots{display:flex;flex-wrap:wrap;gap:6px}
-.slot{border:1.5px solid var(--teal);background:var(--teal-bg);color:var(--teal-ink);border-radius:999px;padding:7px 12px;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums;min-width:118px}
+.slot{border:1.5px solid var(--teal);background:var(--teal-bg);color:var(--teal-ink);border-radius:999px;padding:7px 9px;font-weight:800;font-size:13.5px;font-variant-numeric:tabular-nums;min-width:100px}
 .slot:hover{background:color-mix(in srgb,var(--teal) 22%,var(--paper))}
 .slot[aria-pressed="true"]{background:var(--forest);border-color:var(--forest);color:var(--on-forest)}
 .slot:disabled{border-color:var(--line);background:var(--sunk);color:var(--soft);text-decoration:line-through;cursor:default;opacity:.75}
@@ -163,7 +163,7 @@ const COND = [
 ];
 
 /* ===== Estado ===== */
-const S = { step: 1, dur: 1, pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", motivo: "", detalle: "" }, err: "", num: "" };
+const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", motivo: "", detalle: "" }, err: "", num: "" };
 try { const s = JSON.parse(localStorage.getItem("ases-ayre") || "null"); if (s && s.d) Object.assign(S.d, s.d); } catch (e) {}
 const save = () => { try { localStorage.setItem("ases-ayre", JSON.stringify({ d: S.d })); } catch (e) {} };
 const $ = s => document.querySelector(s);
@@ -199,7 +199,10 @@ function puede(day, h) { for (let i = 0; i < S.dur; i++) if (!libre(day, h + i))
 function fechaLarga(t) { return `${DIAS[t.getUTCDay()]} ${t.getUTCDate()} de ${MESES[t.getUTCMonth()]}`; }
 function cuando() { if (!S.pick) return ""; const { day, h } = S.pick; return `${fechaLarga(day.t)}, de ${h12(h)} a ${h12(h + S.dur)}`; }
 function cuandoCorto() { if (!S.pick) return "—"; const { day, h } = S.pick; return `${DIAS[day.wd].slice(0, 3)} ${day.t.getUTCDate()} · ${h12(h)}`; }
-const total = () => S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
+const clase = () => S.tipo === "clase";
+const total = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
+const totalTxt = () => clase() ? "Sin costo" : `${total()} $`;
+const planTxt = () => clase() ? "Asesoría de clase (club o curso)" : S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas";
 function toast(m) { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2200); }
 
 /* ===== Vistas ===== */
@@ -209,7 +212,7 @@ function render() {
   if (S.step === 1) renderAgenda(); else if (S.step === 2) renderForm(); else renderResumen();
   bars();
 }
-function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${total()} $` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
+function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${clase() ? "Asesoría de clase" : S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${totalTxt()}` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
 
 function renderAgenda() {
   const ds = dias();
@@ -217,12 +220,13 @@ function renderAgenda() {
   const semanas = [];
   ds.forEach(d => { const lunes = new Date(d.t.getTime() - ((d.wd + 6) % 7) * 864e5); const k = lunes.toISOString().slice(0, 10); let w = semanas.find(x => x.k === k); if (!w) semanas.push(w = { k, lunes, days: [] }); w.days.push(d); });
   $("#app").innerHTML = `<ul class="facts"><li><b>60 $</b> la hora</li><li><b>100 $</b> el pack de 2 horas</li><li>Videollamada o presencial en Mérida</li><li>Lunes, martes y jueves en la mañana</li></ul>
-  <div class="plans">${PLANES.map(p => `<div class="plan${S.dur === p.dur ? " sel" : ""}"><span class="ph"><b>${p.nombre}</b><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>
-  <div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>
+  <div class="dur" role="group" aria-label="Tipo de asesoría"><button type="button" data-tipo="pers" aria-pressed="${!clase()}">Asesoría personalizada</button><button type="button" data-tipo="clase" aria-pressed="${clase()}">Soy alumna de un club o curso · sin costo</button></div>
+  ${clase() ? `<p class="aviso" style="margin-bottom:22px"><b>Asesoría de clase:</b> si estás inscrita en un club o curso de Ayre, reserva aquí tu hora de consulta sobre lo que vimos en clase. Dura 1 hora y no tiene costo.</p>` : `<div class="plans">${PLANES.map(p => `<div class="plan${S.dur === p.dur ? " sel" : ""}"><span class="ph"><b>${p.nombre}</b><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>`}
+  ${clase() ? "" : `<div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>`}
   <div class="grid"><section>
     <h2 class="sec">Elige el día y la hora</h2>
     <div class="note">Todas las horas son en la mañana, hora de Venezuela. Las horas en gris ya están reservadas${S.dur === 2 ? " o no dejan espacio para 2 horas seguidas" : ""}. Se reserva con al menos ${ANTICIPACION_HORAS} horas de anticipación.</div>
-    <div class="dur" role="group" aria-label="Duración"><button type="button" data-dur="1" aria-pressed="${S.dur === 1}">1 hora · ${PRECIO_HORA} $</button><button type="button" data-dur="2" aria-pressed="${S.dur === 2}">Pack 2 horas · ${PRECIO_PACK} $</button></div>
+    ${clase() ? "" : `<div class="dur" role="group" aria-label="Duración"><button type="button" data-dur="1" aria-pressed="${S.dur === 1}">1 hora · ${PRECIO_HORA} $</button><button type="button" data-dur="2" aria-pressed="${S.dur === 2}">Pack 2 horas · ${PRECIO_PACK} $</button></div>`}
     ${semanas.length ? semanas.map(w => `<div class="week"><h3>Semana del ${w.lunes.getUTCDate()} de ${MESES[w.lunes.getUTCMonth()]}</h3><div class="days">${w.days.map(dayCard).join("")}</div></div>`).join("")
       : `<div class="panel">No hay horas disponibles en las próximas semanas. Escríbenos por WhatsApp al ${WA_TXT}.</div>`}
   </section>
@@ -238,9 +242,9 @@ function dayCard(d) {
 }
 function drawSheet() {
   if (!$("#sbody")) return;
-  $("#sbody").innerHTML = S.pick ? `<div class="kv"><span>Día</span><b>${esc(fechaLarga(S.pick.day.t))}</b></div><div class="kv"><span>Hora</span><b>${h12(S.pick.h)} a ${h12(S.pick.h + S.dur)}</b></div><div class="kv"><span>Plan</span><b>${S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas"}</b></div>`
+  $("#sbody").innerHTML = S.pick ? `<div class="kv"><span>Día</span><b>${esc(fechaLarga(S.pick.day.t))}</b></div><div class="kv"><span>Hora</span><b>${h12(S.pick.h)} a ${h12(S.pick.h + S.dur)}</b></div><div class="kv"><span>Tipo</span><b>${esc(planTxt())}</b></div>`
     : `<p class="note" style="margin:0">Elige una hora en la agenda y aquí verás tu reserva.</p>`;
-  $("#stot").innerHTML = `<div class="big"><span>Total</span><span>${total()} $</span></div><div class="note">En Bs a tasa BCV del día, Binance o Zelle</div><button class="btn" type="button" data-next ${S.pick ? "" : "disabled"}>Continuar con mis datos</button>`;
+  $("#stot").innerHTML = `<div class="big"><span>Total</span><span>${totalTxt()}</span></div><div class="note">${clase() ? "Incluida en tu club o curso" : "En Bs a tasa BCV del día, Binance o Zelle"}</div><button class="btn" type="button" data-next ${S.pick ? "" : "disabled"}>Continuar con mis datos</button>`;
 }
 
 function renderForm() {
@@ -248,10 +252,11 @@ function renderForm() {
   const f = (id, lab, type = "text", ph = "", opt = false) => `<label class="f">${lab}${opt ? ' <span class="opt">(opcional)</span>' : ""}<input id="d-${id}" type="${type}" value="${esc(d[id])}" placeholder="${ph}" autocomplete="off"></label>`;
   $("#app").innerHTML = `<form class="panel" id="form" novalidate>
     <div><div class="eyebrow">Paso 2</div><h2 class="sec" style="font-size:28px;margin-top:4px">¿Quién toma la asesoría?</h2>
-    <p class="note" style="margin:4px 0 0">${esc(cuando())} · ${total()} $</p></div>
+    <p class="note" style="margin:4px 0 0">${esc(cuando())} · ${esc(planTxt())} · ${totalTxt()}</p></div>
     <div class="f2">${f("nombre", "Nombre", "text", "Tu nombre")}${f("apellido", "Apellido", "text", "Tu apellido")}</div>
     <div class="f2">${f("tel", "Teléfono (WhatsApp)", "tel", "0414 123 4567")}${f("correo", "Correo", "email", "Aquí te llega la confirmación")}</div>
     <div class="f2"><label class="f">Modalidad<select id="d-modalidad">${["Videollamada", "Presencial en Mérida"].map(o => `<option ${o === d.modalidad ? "selected" : ""}>${o}</option>`).join("")}</select></label>
+      ${clase() ? `<label class="f">Club o curso<input id="d-curso" type="text" value="${esc(d.curso)}" placeholder="Ej.: Club Laboratorio Aromático 2" autocomplete="off"></label>` : ""}
       <label class="f">Motivo de la asesoría<select id="d-motivo"><option value="">Elige un motivo</option>${MOTIVOS.map(o => `<option ${o === d.motivo ? "selected" : ""}>${o}</option>`).join("")}</select></label></div>
     <label class="f">Cuéntanos más<textarea id="d-detalle" placeholder="¿Qué producto estás formulando? ¿Qué problema tienes? Si tienes la fórmula, puedes mandarla después por WhatsApp.">${esc(d.detalle)}</textarea></label>
     <div class="err" id="err" ${S.err ? "" : "hidden"}>${esc(S.err)}</div>
@@ -260,7 +265,7 @@ function renderForm() {
   $("#form").addEventListener("change", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); } });
   $("#form").addEventListener("submit", e => {
     e.preventDefault();
-    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
+    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ...(clase() ? [["curso", "el club o curso"]] : []), ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
     if (!miss.length && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.d.correo.trim())) { S.err = "Revisa tu correo: debe tener la forma nombre@correo.com."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     if (miss.length) { S.err = "Falta " + miss.join(", ") + "."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     S.err = ""; const n = nowVE();
@@ -270,7 +275,7 @@ function renderForm() {
 }
 function texto() {
   const d = S.d;
-  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Plan: ${S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas (incluye material de apoyo)"}`, `Modalidad: ${d.modalidad}`, `*Total: ${total()} $*`, ``,
+  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, `*Total: ${totalTxt()}*`, ``,
     `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
@@ -278,17 +283,17 @@ function renderResumen() {
   const d = S.d, txt = texto(), wa = "https://wa.me/" + WA + "?text=" + encodeURIComponent(txt);
   $("#app").innerHTML = `<div style="display:grid;gap:16px">
   <div class="next">
-    <p class="aviso"><b>Falta un paso:</b> envíanos la reserva por WhatsApp. Te pasamos los datos de pago y, al confirmarlo, te llega la confirmación a tu correo.</p>
-    <div class="ns"><span class="nn">1</span><div><b>Envía tu reserva por WhatsApp</b><p class="note">La hora queda apartada para ti cuando confirmamos el pago.</p></div><a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
-    <div class="ns"><span class="nn">2</span><div><b>Recibe la confirmación en tu correo</b><p class="note">Al confirmar el pago te enviamos a ${esc(d.correo)} la invitación con la fecha, la hora y, si es por videollamada, el enlace para conectarte.</p></div></div>
+    <p class="aviso"><b>Falta un paso:</b> envíanos la reserva por WhatsApp. ${clase() ? "Al confirmarla, te llega la confirmación a tu correo." : "Te pasamos los datos de pago y, al confirmarlo, te llega la confirmación a tu correo."}</p>
+    <div class="ns"><span class="nn">1</span><div><b>Envía tu reserva por WhatsApp</b><p class="note">${clase() ? "La hora queda apartada cuando confirmamos tu inscripción en el club o curso." : "La hora queda apartada para ti cuando confirmamos el pago."}</p></div><a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
+    <div class="ns"><span class="nn">2</span><div><b>Recibe la confirmación en tu correo</b><p class="note">Al confirmar ${clase() ? "tu reserva" : "el pago"} te enviamos a ${esc(d.correo)} la invitación con la fecha, la hora y, si es por videollamada, el enlace para conectarte.</p></div></div>
     <div class="ns"><span class="nn">3</span><div><b>Prepara tu consulta</b><p class="note">Si tienes la fórmula, fotos del producto o la ficha técnica de algún ingrediente, mándalos por el mismo chat.</p></div></div>
   </div>
   <article class="doc" aria-label="Reserva">
     <div class="dh"><div><div class="eyebrow">Insumos Ayre · Asesorías</div><h2>Reserva de asesoría</h2></div><div class="meta">N.º <b>${S.num}</b><br>WhatsApp ${WA_TXT}</div></div>
-    <div class="when"><b>${esc(cuando())}</b><span>${total()} $</span></div>
-    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
+    <div class="when"><b>${esc(cuando())}</b><span>${totalTxt()}</span></div>
+    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Tipo</dt><dd>${esc(planTxt())}${clase() ? " · " + esc(d.curso) : ""}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
     ${d.detalle ? `<p style="margin:0"><b>Detalle:</b> ${esc(d.detalle)}</p>` : ""}
-    <ul class="cond">${COND.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
+    <ul class="cond">${(clase() ? COND.filter((c, i) => i > 1) : COND).map(c => `<li>${esc(c)}</li>`).join("")}</ul>
   </article>
   <div class="acts"><button class="btn alt" type="button" data-copy>Copiar texto de la reserva</button></div>
   <p class="note" style="max-width:760px;margin:0">Si WhatsApp no se abre, copia el texto y envíalo al ${WA_TXT}.</p>
@@ -299,6 +304,7 @@ function renderResumen() {
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.tipo) { S.tipo = b.dataset.tipo; if (clase()) S.dur = 1; renderAgenda(); bars(); return; }
   if (b.dataset.dur) { S.dur = Number(b.dataset.dur); if (S.pick) { const day = dias().find(d => d.k === S.pick.day.k); if (!day || !puede(day, S.pick.h)) { S.pick = null; toast("Esa hora no tiene 2 horas seguidas libres"); } } renderAgenda(); bars(); return; }
   if (b.dataset.k) { const day = dias().find(d => d.k === b.dataset.k), h = Number(b.dataset.h); if (day && puede(day, h)) { S.pick = { day, h }; document.querySelectorAll(".slot").forEach(x => x.setAttribute("aria-pressed", x === b)); drawSheet(); bars(); } return; }
   if (b.hasAttribute("data-next") || b.id === "mnext") { if (S.pick) { S.step = 2; render(); window.scrollTo(0, 0); } return; }
