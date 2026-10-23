@@ -88,6 +88,8 @@ label.f input,label.f select,label.f textarea{text-transform:none;letter-spacing
 label.f textarea{min-height:90px;resize:vertical}
 .opt{font-weight:600;text-transform:none;letter-spacing:0}
 .err{color:var(--warn);font-size:13px;font-weight:700}
+.cupok{color:var(--forest);font-size:13px;font-weight:800;text-transform:none;letter-spacing:0}
+label.f .err{text-transform:none;letter-spacing:0}
 .doc{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:28px clamp(16px,4vw,36px);max-width:760px;display:grid;gap:18px;box-shadow:0 1px 0 var(--line),0 10px 30px -18px rgba(0,0,0,.35)}
 .doc .dh{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--forest);padding-bottom:12px}
 .doc .dh h2{font-family:var(--display);font-weight:400;font-size:30px;margin:0;color:var(--forest)}
@@ -155,6 +157,8 @@ const PLANES = [
   { dur: 1, nombre: "Asesoría de 1 hora", precio: PRECIO_HORA, incluye: ["Asesoría personalizada de 1 hora", "Resumen por escrito con las recomendaciones"] },
   { dur: 2, nombre: "Pack de 2 horas", precio: PRECIO_PACK, incluye: ["Asesoría personalizada de 2 horas seguidas", "Material de apoyo: plantillas de hoja de lote y de ficha de producto", "Plan de acción por escrito para tu fórmula o tu proceso", "Una consulta de seguimiento por WhatsApp en los 7 días siguientes"] }
 ];
+// Cupones: huella SHA-256 del código en mayúsculas → % de descuento (así el código no se lee en la página)
+const CUPONES = { "f6b70db6b1f6f8b5d89e63b244ca7dda83f2a4aabe98b9c53d1e9314b075a39d": 10, "323ea5b1e4a1f3129c8c0098ca6c32b6ecf56ddd37d86940c4a448913f711ab0": 15 };
 const COND = [
   "Asesoría de 1 hora: 60 $. Pack de 2 horas: 100 $. Pagaderos en Bs a la tasa BCV del día, por Binance o por Zelle.",
   "Tu hora queda apartada cuando confirmamos el pago.",
@@ -163,7 +167,7 @@ const COND = [
 ];
 
 /* ===== Estado ===== */
-const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", cupon: "", motivo: "", detalle: "" }, err: "", num: "" };
+const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", cupon: "", motivo: "", detalle: "" }, err: "", num: "", desc: 0 };
 try { const s = JSON.parse(localStorage.getItem("ases-ayre") || "null"); if (s && s.d) Object.assign(S.d, s.d); } catch (e) {}
 const save = () => { try { localStorage.setItem("ases-ayre", JSON.stringify({ d: S.d })); } catch (e) {} };
 const $ = s => document.querySelector(s);
@@ -200,9 +204,15 @@ function fechaLarga(t) { return `${DIAS[t.getUTCDay()]} ${t.getUTCDate()} de ${M
 function cuando() { if (!S.pick) return ""; const { day, h } = S.pick; return `${fechaLarga(day.t)}, de ${h12(h)} a ${h12(h + S.dur)}`; }
 function cuandoCorto() { if (!S.pick) return "—"; const { day, h } = S.pick; return `${DIAS[day.wd].slice(0, 3)} ${day.t.getUTCDate()} · ${h12(h)}`; }
 const clase = () => S.tipo === "clase";
-const total = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
-const totalTxt = () => clase() ? "Por confirmar" : `${total()} $`;
-const cup = () => !clase() && S.d.cupon.trim() ? S.d.cupon.trim().toUpperCase() : "";
+const base = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
+const dcto = () => clase() ? 0 : S.desc;
+const total = () => Math.round(base() * (100 - dcto())) / 100;
+const fmt = n => String(n).replace(".", ",") + " $";
+const totalTxt = () => clase() ? "Por confirmar" : fmt(total());
+async function hashCupon(c) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(c)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+async function validarCupon() { const c = S.d.cupon.trim().toUpperCase(); if (!c) { S.desc = 0; return "vacio"; } try { const p = CUPONES[await hashCupon(c)]; S.desc = p || 0; return p ? "ok" : "malo"; } catch (e) { S.desc = 0; return "malo"; } }
+async function pintarCupon() { const el = $("#cupmsg"); if (!el) return; const r = await validarCupon(); el.hidden = r === "vacio"; el.className = r === "ok" ? "cupok" : "err"; el.textContent = r === "ok" ? `Cupón aplicado: ${S.desc} % de descuento. Total: ${fmt(total())} en vez de ${fmt(base())}.` : "Este cupón no es válido. Revísalo o déjalo en blanco."; }
+const cup = () => !clase() && S.desc ? S.d.cupon.trim().toUpperCase() : "";
 const planTxt = () => clase() ? "Asesoría de clase (club o curso)" : S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas";
 function toast(m) { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2200); }
 
@@ -213,7 +223,7 @@ function render() {
   if (S.step === 1) renderAgenda(); else if (S.step === 2) renderForm(); else renderResumen();
   bars();
 }
-function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${clase() ? "Asesoría de clase" : S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${totalTxt()}` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
+function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${clase() ? "Asesoría de clase" : S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${clase() ? "" : fmt(base())}` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
 
 function renderAgenda() {
   const ds = dias();
@@ -253,23 +263,25 @@ function renderForm() {
   const f = (id, lab, type = "text", ph = "", opt = false) => `<label class="f">${lab}${opt ? ' <span class="opt">(opcional)</span>' : ""}<input id="d-${id}" type="${type}" value="${esc(d[id])}" placeholder="${ph}" autocomplete="off"></label>`;
   $("#app").innerHTML = `<form class="panel" id="form" novalidate>
     <div><div class="eyebrow">Paso 2</div><h2 class="sec" style="font-size:28px;margin-top:4px">¿Quién toma la asesoría?</h2>
-    <p class="note" style="margin:4px 0 0">${esc(cuando())} · ${esc(planTxt())} · ${totalTxt()}</p></div>
+    <p class="note" style="margin:4px 0 0">${esc(cuando())} · ${esc(planTxt())} · ${clase() ? "" : fmt(base())}</p></div>
     <div class="f2">${f("nombre", "Nombre", "text", "Tu nombre")}${f("apellido", "Apellido", "text", "Tu apellido")}</div>
     <div class="f2">${f("tel", "Teléfono (WhatsApp)", "tel", "0414 123 4567")}${f("correo", "Correo", "email", "Aquí te llega la confirmación")}</div>
     <div class="f2"><label class="f">Modalidad<select id="d-modalidad">${["Videollamada", "Presencial en Mérida"].map(o => `<option ${o === d.modalidad ? "selected" : ""}>${o}</option>`).join("")}</select></label>
       ${clase() ? `<label class="f">Club o curso<input id="d-curso" type="text" value="${esc(d.curso)}" placeholder="Ej.: Club Laboratorio Aromático 2" autocomplete="off"></label>` : ""}
       <label class="f">Motivo de la asesoría<select id="d-motivo"><option value="">Elige un motivo</option>${MOTIVOS.map(o => `<option ${o === d.motivo ? "selected" : ""}>${o}</option>`).join("")}</select></label></div>
-    ${clase() ? "" : `<label class="f"><span>Cupón de descuento <span class="opt">(opcional)</span></span><input id="d-cupon" type="text" value="${esc(d.cupon)}" placeholder="Si tienes un cupón, escríbelo aquí" autocomplete="off" style="text-transform:uppercase"></label>`}
+    ${clase() ? "" : `<label class="f"><span>Cupón de descuento <span class="opt">(opcional)</span></span><input id="d-cupon" type="text" value="${esc(d.cupon)}" placeholder="Si tienes un cupón, escríbelo aquí" autocomplete="off" style="text-transform:uppercase"><span id="cupmsg" hidden></span></label>`}
     <label class="f">Cuéntanos más<textarea id="d-detalle" placeholder="¿Qué producto estás formulando? ¿Qué problema tienes? Si tienes la fórmula, puedes mandarla después por WhatsApp.">${esc(d.detalle)}</textarea></label>
     <div class="err" id="err" ${S.err ? "" : "hidden"}>${esc(S.err)}</div>
     <div class="acts"><button class="btn alt" type="button" data-back>Cambiar fecha</button><button class="btn" type="submit">Ver mi reserva</button></div></form>`;
-  $("#form").addEventListener("input", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); } });
+  $("#form").addEventListener("input", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); if (k === "cupon") pintarCupon(); } });
+  pintarCupon();
   $("#form").addEventListener("change", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); } });
-  $("#form").addEventListener("submit", e => {
+  $("#form").addEventListener("submit", async e => {
     e.preventDefault();
     const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ...(clase() ? [["curso", "el club o curso"]] : []), ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
     if (!miss.length && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.d.correo.trim())) { S.err = "Revisa tu correo: debe tener la forma nombre@correo.com."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     if (miss.length) { S.err = "Falta " + miss.join(", ") + "."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
+    if (!clase() && (await validarCupon()) === "malo") { S.err = "El cupón no es válido. Revísalo o déjalo en blanco."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     S.err = ""; const n = nowVE();
     S.num = "AS-" + String(n.getUTCFullYear()).slice(2) + pad(n.getUTCMonth() + 1) + pad(n.getUTCDate()) + "-" + pad(n.getUTCHours()) + pad(n.getUTCMinutes());
     S.step = 3; render(); window.scrollTo(0, 0);
@@ -277,7 +289,7 @@ function renderForm() {
 }
 function texto() {
   const d = S.d;
-  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (antes del cupón ${cup()})` : ""}`, ``,
+  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (cupón ${cup()}: ${dcto()} % de descuento sobre ${fmt(base())})` : ""}`, ``,
     `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
@@ -293,7 +305,7 @@ function renderResumen() {
   <article class="doc" aria-label="Reserva">
     <div class="dh"><div><div class="eyebrow">Insumos Ayre · Asesorías</div><h2>Reserva de asesoría</h2></div><div class="meta">N.º <b>${S.num}</b><br>WhatsApp ${WA_TXT}</div></div>
     <div class="when"><b>${esc(cuando())}</b><span>${totalTxt()}</span></div>
-    ${cup() ? `<p class="aviso" style="margin:0"><b>Cupón ${esc(cup())}:</b> el descuento se aplica cuando te confirmamos la reserva y te pasamos el monto a pagar.</p>` : ""}
+    ${cup() ? `<p class="aviso" style="margin:0"><b>Cupón ${esc(cup())} aplicado:</b> ${dcto()} % de descuento sobre ${fmt(base())}.</p>` : ""}
     <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Tipo</dt><dd>${esc(planTxt())}${clase() ? " · " + esc(d.curso) : ""}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
     ${d.detalle ? `<p style="margin:0"><b>Detalle:</b> ${esc(d.detalle)}</p>` : ""}
     <ul class="cond">${(clase() ? COND.filter((c, i) => i > 1) : COND).map(c => `<li>${esc(c)}</li>`).join("")}</ul>
