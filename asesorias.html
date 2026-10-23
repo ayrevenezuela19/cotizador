@@ -163,7 +163,7 @@ const COND = [
 ];
 
 /* ===== Estado ===== */
-const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", motivo: "", detalle: "" }, err: "", num: "" };
+const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", cupon: "", motivo: "", detalle: "" }, err: "", num: "" };
 try { const s = JSON.parse(localStorage.getItem("ases-ayre") || "null"); if (s && s.d) Object.assign(S.d, s.d); } catch (e) {}
 const save = () => { try { localStorage.setItem("ases-ayre", JSON.stringify({ d: S.d })); } catch (e) {} };
 const $ = s => document.querySelector(s);
@@ -202,6 +202,7 @@ function cuandoCorto() { if (!S.pick) return "—"; const { day, h } = S.pick; r
 const clase = () => S.tipo === "clase";
 const total = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
 const totalTxt = () => clase() ? "Por confirmar" : `${total()} $`;
+const cup = () => !clase() && S.d.cupon.trim() ? S.d.cupon.trim().toUpperCase() : "";
 const planTxt = () => clase() ? "Asesoría de clase (club o curso)" : S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas";
 function toast(m) { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2200); }
 
@@ -258,6 +259,7 @@ function renderForm() {
     <div class="f2"><label class="f">Modalidad<select id="d-modalidad">${["Videollamada", "Presencial en Mérida"].map(o => `<option ${o === d.modalidad ? "selected" : ""}>${o}</option>`).join("")}</select></label>
       ${clase() ? `<label class="f">Club o curso<input id="d-curso" type="text" value="${esc(d.curso)}" placeholder="Ej.: Club Laboratorio Aromático 2" autocomplete="off"></label>` : ""}
       <label class="f">Motivo de la asesoría<select id="d-motivo"><option value="">Elige un motivo</option>${MOTIVOS.map(o => `<option ${o === d.motivo ? "selected" : ""}>${o}</option>`).join("")}</select></label></div>
+    ${clase() ? "" : `<label class="f"><span>Cupón de descuento <span class="opt">(opcional)</span></span><input id="d-cupon" type="text" value="${esc(d.cupon)}" placeholder="Si tienes un cupón, escríbelo aquí" autocomplete="off" style="text-transform:uppercase"></label>`}
     <label class="f">Cuéntanos más<textarea id="d-detalle" placeholder="¿Qué producto estás formulando? ¿Qué problema tienes? Si tienes la fórmula, puedes mandarla después por WhatsApp.">${esc(d.detalle)}</textarea></label>
     <div class="err" id="err" ${S.err ? "" : "hidden"}>${esc(S.err)}</div>
     <div class="acts"><button class="btn alt" type="button" data-back>Cambiar fecha</button><button class="btn" type="submit">Ver mi reserva</button></div></form>`;
@@ -275,7 +277,7 @@ function renderForm() {
 }
 function texto() {
   const d = S.d;
-  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*`, ``,
+  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (antes del cupón ${cup()})` : ""}`, ``,
     `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
@@ -291,6 +293,7 @@ function renderResumen() {
   <article class="doc" aria-label="Reserva">
     <div class="dh"><div><div class="eyebrow">Insumos Ayre · Asesorías</div><h2>Reserva de asesoría</h2></div><div class="meta">N.º <b>${S.num}</b><br>WhatsApp ${WA_TXT}</div></div>
     <div class="when"><b>${esc(cuando())}</b><span>${totalTxt()}</span></div>
+    ${cup() ? `<p class="aviso" style="margin:0"><b>Cupón ${esc(cup())}:</b> el descuento se aplica cuando te confirmamos la reserva y te pasamos el monto a pagar.</p>` : ""}
     <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Tipo</dt><dd>${esc(planTxt())}${clase() ? " · " + esc(d.curso) : ""}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
     ${d.detalle ? `<p style="margin:0"><b>Detalle:</b> ${esc(d.detalle)}</p>` : ""}
     <ul class="cond">${(clase() ? COND.filter((c, i) => i > 1) : COND).map(c => `<li>${esc(c)}</li>`).join("")}</ul>
