@@ -151,7 +151,7 @@ const HORARIO = { 1: [10, 11], 2: [8, 9], 4: [8, 9, 10, 11] };
 const RESERVADAS = [];
 // Días sin asesorías (feriados, viajes, eventos): "AAAA-MM-DD"
 const DIAS_LIBRES = [];
-const MOTIVOS = ["Formulación de un producto nuevo", "Ajuste de una fórmula", "Estandarización de operaciones", "Control de calidad", "Estabilidad y conservación", "Escalar mi producción", "Elegir materia prima", "Emprender con mi marca", "Otro"];
+const MOTIVOS = ["Cómo usar los insumos que compré", "Formulación de un producto nuevo", "Ajuste de una fórmula", "Estandarización de operaciones", "Control de calidad", "Estabilidad y conservación", "Escalar mi producción", "Elegir materia prima", "Emprender con mi marca", "Otro"];
 const TEMAS = ["Formulación", "Ajuste de fórmulas", "Estandarización de operaciones", "Control de calidad", "Estabilidad y conservación", "Escalado de producción", "Materia prima", "Emprendimiento cosmético"];
 const PLANES = [
   { dur: 1, nombre: "Asesoría de 1 hora", precio: PRECIO_HORA, incluye: ["Asesoría personalizada de 1 hora", "Resumen por escrito con las recomendaciones"] },
@@ -203,7 +203,19 @@ function puede(day, h) { for (let i = 0; i < S.dur; i++) if (!libre(day, h + i))
 function fechaLarga(t) { return `${DIAS[t.getUTCDay()]} ${t.getUTCDate()} de ${MESES[t.getUTCMonth()]}`; }
 function cuando() { if (!S.pick) return ""; const { day, h } = S.pick; return `${fechaLarga(day.t)}, de ${h12(h)} a ${h12(h + S.dur)}`; }
 function cuandoCorto() { if (!S.pick) return "—"; const { day, h } = S.pick; return `${DIAS[day.wd].slice(0, 3)} ${day.t.getUTCDate()} · ${h12(h)}`; }
-const clase = () => S.tipo === "clase";
+const TIPOS = {
+  pers: { boton: "Asesoría personalizada" },
+  clase: { boton: "Asesoría de clase (club o curso)", nombre: "Asesoría de clase (club o curso)", corto: "Asesoría de clase",
+    aviso: "<b>Asesoría de clase:</b> si estás inscrita en un club o curso de Ayre, reserva aquí tu consulta sobre lo que vimos en clase. Dura 1 hora y verificamos tu inscripción al confirmarla.",
+    campo: { label: "Club o curso", ph: "Ej.: Club Laboratorio Aromático 2", falta: "el club o curso", msg: "Club o curso" },
+    verif: "Verificamos tu inscripción en el club o curso", aparta: "La hora queda apartada cuando confirmamos tu inscripción en el club o curso." },
+  compra: { boton: "Asesoría por compra de materia prima", nombre: "Asesoría por compra de materia prima", corto: "Asesoría por compra",
+    aviso: "<b>Asesoría por compra:</b> si compraste materia prima en Insumos Ayre, reserva aquí tu consulta sobre cómo usarla en tus fórmulas. Dura 1 hora y verificamos tu compra al confirmarla.",
+    campo: { label: "Número de cotización o pedido", ph: "Ej.: IA-261022-1530", falta: "el número de tu cotización o pedido", msg: "Cotización o pedido" },
+    verif: "Verificamos tu compra en Insumos Ayre", aparta: "La hora queda apartada cuando verificamos tu compra." }
+};
+const T = () => TIPOS[S.tipo];
+const clase = () => S.tipo !== "pers";   // asesorías que no se cobran aparte (clase o compra)
 const base = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
 const dcto = () => clase() ? 0 : S.desc;
 const total = () => Math.round(base() * (100 - dcto())) / 100;
@@ -213,7 +225,7 @@ async function hashCupon(c) { const b = await crypto.subtle.digest("SHA-256", ne
 async function validarCupon() { const c = S.d.cupon.trim().toUpperCase(); if (!c) { S.desc = 0; return "vacio"; } try { const p = CUPONES[await hashCupon(c)]; S.desc = p || 0; return p ? "ok" : "malo"; } catch (e) { S.desc = 0; return "malo"; } }
 async function pintarCupon() { const el = $("#cupmsg"); if (!el) return; const r = await validarCupon(); el.hidden = r === "vacio"; el.className = r === "ok" ? "cupok" : "err"; el.textContent = r === "ok" ? `Cupón aplicado: ${S.desc} % de descuento. Total: ${fmt(total())} en vez de ${fmt(base())}.` : "Este cupón no es válido. Revísalo o déjalo en blanco."; }
 const cup = () => !clase() && S.desc ? S.d.cupon.trim().toUpperCase() : "";
-const planTxt = () => clase() ? "Asesoría de clase (club o curso)" : S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas";
+const planTxt = () => clase() ? T().nombre : S.dur === 1 ? "Asesoría de 1 hora" : "Pack de 2 horas";
 function toast(m) { const t = $("#toast"); t.textContent = m; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2200); }
 
 /* ===== Vistas ===== */
@@ -223,7 +235,7 @@ function render() {
   if (S.step === 1) renderAgenda(); else if (S.step === 2) renderForm(); else renderResumen();
   bars();
 }
-function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${clase() ? "Asesoría de clase" : S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${clase() ? "" : fmt(base())}` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
+function bars() { $("#mwhen").textContent = cuandoCorto(); $("#mlab").textContent = S.pick ? `${clase() ? T().corto : S.dur === 1 ? "1 hora" : "Pack 2 horas"} · ${clase() ? "" : fmt(base())}` : "Elige una hora"; $("#mnext").disabled = !S.pick; }
 
 function renderAgenda() {
   const ds = dias();
@@ -231,8 +243,8 @@ function renderAgenda() {
   const semanas = [];
   ds.forEach(d => { const lunes = new Date(d.t.getTime() - ((d.wd + 6) % 7) * 864e5); const k = lunes.toISOString().slice(0, 10); let w = semanas.find(x => x.k === k); if (!w) semanas.push(w = { k, lunes, days: [] }); w.days.push(d); });
   $("#app").innerHTML = `<ul class="facts"><li><b>60 $</b> la hora</li><li><b>100 $</b> el pack de 2 horas</li><li>Videollamada o presencial en Mérida</li><li>Lunes, martes y jueves en la mañana</li></ul>
-  <div class="dur" role="group" aria-label="Tipo de asesoría"><button type="button" data-tipo="pers" aria-pressed="${!clase()}">Asesoría personalizada</button><button type="button" data-tipo="clase" aria-pressed="${clase()}">Asesoría de clase (club o curso)</button></div>
-  ${clase() ? `<p class="aviso" style="margin-bottom:22px"><b>Asesoría de clase:</b> si estás inscrita en un club o curso de Ayre, reserva aquí tu consulta sobre lo que vimos en clase. Dura 1 hora y verificamos tu inscripción al confirmarla.</p>` : `<div class="plans">${PLANES.map(p => `<div class="plan${S.dur === p.dur ? " sel" : ""}"><span class="ph"><b>${p.nombre}</b><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>`}
+  <div class="dur" role="group" aria-label="Tipo de asesoría">${Object.entries(TIPOS).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${S.tipo === k}">${t.boton}</button>`).join("")}</div>
+  ${clase() ? `<p class="aviso" style="margin-bottom:22px">${T().aviso}</p>` : `<div class="plans">${PLANES.map(p => `<div class="plan${S.dur === p.dur ? " sel" : ""}"><span class="ph"><b>${p.nombre}</b><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>`}
   ${clase() ? "" : `<div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>`}
   <div class="grid"><section>
     <h2 class="sec">Elige el día y la hora</h2>
@@ -255,7 +267,7 @@ function drawSheet() {
   if (!$("#sbody")) return;
   $("#sbody").innerHTML = S.pick ? `<div class="kv"><span>Día</span><b>${esc(fechaLarga(S.pick.day.t))}</b></div><div class="kv"><span>Hora</span><b>${h12(S.pick.h)} a ${h12(S.pick.h + S.dur)}</b></div><div class="kv"><span>Tipo</span><b>${esc(planTxt())}</b></div>`
     : `<p class="note" style="margin:0">Elige una hora en la agenda y aquí verás tu reserva.</p>`;
-  $("#stot").innerHTML = `<div class="big"><span>Total</span><span>${totalTxt()}</span></div><div class="note">${clase() ? "Verificamos tu inscripción en el club o curso" : "En Bs a tasa BCV del día, Binance o Zelle"}</div><button class="btn" type="button" data-next ${S.pick ? "" : "disabled"}>Continuar con mis datos</button>`;
+  $("#stot").innerHTML = `<div class="big"><span>Total</span><span>${totalTxt()}</span></div><div class="note">${clase() ? T().verif : "En Bs a tasa BCV del día, Binance o Zelle"}</div><button class="btn" type="button" data-next ${S.pick ? "" : "disabled"}>Continuar con mis datos</button>`;
 }
 
 function renderForm() {
@@ -267,7 +279,7 @@ function renderForm() {
     <div class="f2">${f("nombre", "Nombre", "text", "Tu nombre")}${f("apellido", "Apellido", "text", "Tu apellido")}</div>
     <div class="f2">${f("tel", "Teléfono (WhatsApp)", "tel", "0414 123 4567")}${f("correo", "Correo", "email", "Aquí te llega la confirmación")}</div>
     <div class="f2"><label class="f">Modalidad<select id="d-modalidad">${["Videollamada", "Presencial en Mérida"].map(o => `<option ${o === d.modalidad ? "selected" : ""}>${o}</option>`).join("")}</select></label>
-      ${clase() ? `<label class="f">Club o curso<input id="d-curso" type="text" value="${esc(d.curso)}" placeholder="Ej.: Club Laboratorio Aromático 2" autocomplete="off"></label>` : ""}
+      ${clase() ? `<label class="f">${T().campo.label}<input id="d-curso" type="text" value="${esc(d.curso)}" placeholder="${T().campo.ph}" autocomplete="off"></label>` : ""}
       <label class="f">Motivo de la asesoría<select id="d-motivo"><option value="">Elige un motivo</option>${MOTIVOS.map(o => `<option ${o === d.motivo ? "selected" : ""}>${o}</option>`).join("")}</select></label></div>
     ${clase() ? "" : `<label class="f"><span>Cupón de descuento <span class="opt">(opcional)</span></span><input id="d-cupon" type="text" value="${esc(d.cupon)}" placeholder="Si tienes un cupón, escríbelo aquí" autocomplete="off" style="text-transform:uppercase"><span id="cupmsg" hidden></span></label>`}
     <label class="f">Cuéntanos más<textarea id="d-detalle" placeholder="¿Qué producto estás formulando? ¿Qué problema tienes? Si tienes la fórmula, puedes mandarla después por WhatsApp.">${esc(d.detalle)}</textarea></label>
@@ -278,7 +290,7 @@ function renderForm() {
   $("#form").addEventListener("change", e => { const k = e.target.id.replace("d-", ""); if (k in S.d) { S.d[k] = e.target.value; save(); } });
   $("#form").addEventListener("submit", async e => {
     e.preventDefault();
-    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ...(clase() ? [["curso", "el club o curso"]] : []), ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
+    const miss = [["nombre", "tu nombre"], ["apellido", "tu apellido"], ["tel", "tu teléfono"], ["correo", "tu correo"], ...(clase() ? [["curso", T().campo.falta]] : []), ["motivo", "el motivo de la asesoría"]].filter(([k]) => !S.d[k].trim()).map(x => x[1]);
     if (!miss.length && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(S.d.correo.trim())) { S.err = "Revisa tu correo: debe tener la forma nombre@correo.com."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     if (miss.length) { S.err = "Falta " + miss.join(", ") + "."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
     if (!clase() && (await validarCupon()) === "malo") { S.err = "El cupón no es válido. Revísalo o déjalo en blanco."; $("#err").textContent = S.err; $("#err").hidden = false; return; }
@@ -289,7 +301,7 @@ function renderForm() {
 }
 function texto() {
   const d = S.d;
-  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `Club o curso: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (cupón ${cup()}: ${dcto()} % de descuento sobre ${fmt(base())})` : ""}`, ``,
+  return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `${T().campo.msg}: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (cupón ${cup()}: ${dcto()} % de descuento sobre ${fmt(base())})` : ""}`, ``,
     `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
@@ -298,7 +310,7 @@ function renderResumen() {
   $("#app").innerHTML = `<div style="display:grid;gap:16px">
   <div class="next">
     <p class="aviso"><b>Falta un paso:</b> envíanos la reserva por WhatsApp. ${clase() ? "Al confirmarla, te llega la confirmación a tu correo." : "Te pasamos los datos de pago y, al confirmarlo, te llega la confirmación a tu correo."}</p>
-    <div class="ns"><span class="nn">1</span><div><b>Envía tu reserva por WhatsApp</b><p class="note">${clase() ? "La hora queda apartada cuando confirmamos tu inscripción en el club o curso." : "La hora queda apartada para ti cuando confirmamos el pago."}</p></div><a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
+    <div class="ns"><span class="nn">1</span><div><b>Envía tu reserva por WhatsApp</b><p class="note">${clase() ? T().aparta : "La hora queda apartada para ti cuando confirmamos el pago."}</p></div><a class="btn" href="${wa}" target="_blank" rel="noopener">Enviar por WhatsApp</a></div>
     <div class="ns"><span class="nn">2</span><div><b>Recibe la confirmación en tu correo</b><p class="note">Al confirmar ${clase() ? "tu reserva" : "el pago"} te enviamos a ${esc(d.correo)} la invitación con la fecha, la hora y, si es por videollamada, el enlace para conectarte.</p></div></div>
     <div class="ns"><span class="nn">3</span><div><b>Prepara tu consulta</b><p class="note">Si tienes la fórmula, fotos del producto o la ficha técnica de algún ingrediente, mándalos por el mismo chat.</p></div></div>
   </div>
