@@ -141,7 +141,7 @@ label.f .err{text-transform:none;letter-spacing:0}
 
 <script>
 /* ===== Configuración (Ayre la actualiza) ===== */
-const PRECIO_HORA = 60, PRECIO_PACK = 100;   // 1 hora · pack de 2 horas
+const PRECIO_HORA = 60, PRECIO_PACK = 105;   // 1 hora · pack de 2 horas
 const WA = "584247535665", WA_TXT = "+58 424 753 5665";
 const SEMANAS = 4;                 // semanas que se muestran
 const ANTICIPACION_HORAS = 24;     // no se puede reservar con menos anticipación
@@ -160,7 +160,7 @@ const PLANES = [
 // Cupones: huella SHA-256 del código en mayúsculas → % de descuento (así el código no se lee en la página)
 const CUPONES = { "f6b70db6b1f6f8b5d89e63b244ca7dda83f2a4aabe98b9c53d1e9314b075a39d": 10, "323ea5b1e4a1f3129c8c0098ca6c32b6ecf56ddd37d86940c4a448913f711ab0": 15 };
 const COND = [
-  "Asesoría de 1 hora: 60 $. Pack de 2 horas: 100 $. Pagaderos en Bs a la tasa BCV del día, por Binance o por Zelle.",
+  "Asesoría de 1 hora: 60 $. Pack de 2 horas: 105 $. Pagaderos en Bs a la tasa BCV del día, por Binance o por Zelle.",
   "Tu hora queda apartada cuando confirmamos el pago.",
   "Si necesitas cambiar la fecha, avísanos con 24 horas de anticipación.",
   "Horario de Venezuela (UTC−4)."
@@ -242,7 +242,7 @@ function renderAgenda() {
   if (S.pick && !ds.some(d => d.k === S.pick.day.k && puede(d, S.pick.h))) S.pick = null;
   const semanas = [];
   ds.forEach(d => { const lunes = new Date(d.t.getTime() - ((d.wd + 6) % 7) * 864e5); const k = lunes.toISOString().slice(0, 10); let w = semanas.find(x => x.k === k); if (!w) semanas.push(w = { k, lunes, days: [] }); w.days.push(d); });
-  $("#app").innerHTML = `<ul class="facts"><li><b>60 $</b> la hora</li><li><b>100 $</b> el pack de 2 horas</li><li>Videollamada o presencial en Mérida</li><li>Lunes, martes y jueves en la mañana</li></ul>
+  $("#app").innerHTML = `<ul class="facts"><li><b>60 $</b> la hora</li><li><b>105 $</b> el pack de 2 horas</li><li>Videollamada o presencial en Mérida</li><li>Lunes, martes y jueves en la mañana</li></ul>
   <div class="dur" role="group" aria-label="Tipo de asesoría">${Object.entries(TIPOS).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${S.tipo === k}">${t.boton}</button>`).join("")}</div>
   ${clase() ? `<p class="aviso" style="margin-bottom:22px">${T().aviso}</p>` : `<div class="plans">${PLANES.map(p => `<div class="plan${S.dur === p.dur ? " sel" : ""}"><span class="ph"><b>${p.nombre}</b><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></div>`).join("")}</div>`}
   ${clase() ? "" : `<div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>`}
