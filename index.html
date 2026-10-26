@@ -108,6 +108,13 @@ tfoot tr.g td{font-size:18px;color:var(--forest);border-top:2px solid var(--fore
 .next{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:12px;max-width:760px}
 .clear{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:1px dashed var(--line);border-radius:14px;background:var(--paper)}
 .clear .btn{width:auto;padding-inline:16px}
+@media print{
+  @page{size:letter;margin:14mm}
+  body{background:#fff!important}
+  .wrap>header.top,.mbar,.toast,#app>div>:not(article.doc){display:none!important}
+  .wrap{padding:0!important;max-width:none!important}
+  article.doc{box-shadow:none!important;border:0!important;padding:0!important}
+}
 .ns{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
 .ns .btn{width:auto;text-decoration:none;text-align:center}
 .ns p{margin:2px 0 0}
@@ -321,7 +328,7 @@ function renderQuote(){
     ${d.notas?`<p style="margin:0"><b>Notas:</b> ${esc(d.notas)}</p>`:""}
     <ul class="cond">${COND.map(c=>`<li>${esc(c)}</li>`).join("")}</ul>
   </article>
-  <div class="acts"><button class="btn alt" type="button" data-copy>Copiar texto de la cotización</button></div>
+  <div class="acts"><button class="btn" type="button" data-pdf>Descargar cotización en PDF</button><button class="btn alt" type="button" data-copy>Copiar texto de la cotización</button></div>
   <p class="note" style="max-width:760px">Si WhatsApp no se abre, copia el texto y envíalo al ${WA_TXT}.</p>
   <textarea class="copybox" id="copybox" readonly aria-label="Texto de la cotización">${esc(txt)}</textarea>
   <div class="acts"><button class="btn alt" type="button" data-edit>Cambiar productos</button><button class="btn alt" type="button" data-new>Empezar otra cotización</button></div></div>`;
@@ -334,6 +341,7 @@ document.addEventListener("click", e=>{
   if (b.dataset.d){ setQty(b.dataset.d,(S.cart[b.dataset.d]||0)-1); refreshRow(b.dataset.d); return; }
   if (b.dataset.rm){ setQty(b.dataset.rm,0); refreshRow(b.dataset.rm); return; }
   if (b.hasAttribute("data-next") || b.id==="mnext"){ if (totals().L.length){ S.step=2; render(); window.scrollTo(0,0); } return; }
+  if (b.hasAttribute("data-pdf")){ const t0 = document.title; document.title = "Cotizacion-Insumos-Ayre-"+S.num; window.print(); setTimeout(()=>{ document.title = t0; }, 1000); return; }
   if (b.hasAttribute("data-back") || b.hasAttribute("data-edit")){ S.step=1; render(); return; }
   if (b.hasAttribute("data-new")){ S.cart={}; save(); S.step=1; render(); S.q=""; window.scrollTo(0,0); toast("Lista vacía, lista para otra cotización"); return; }
   if (b.hasAttribute("data-copy")){ const txt = quoteText();
