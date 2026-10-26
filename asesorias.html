@@ -150,7 +150,12 @@ const HORARIO = { 1: [10, 11], 2: [8, 9], 4: [8, 9, 10, 11] };
 // Horas ya reservadas: "AAAA-MM-DD HH" (hora de inicio, formato 24 h)
 const RESERVADAS = [];
 // Días sin asesorías (feriados, viajes, eventos): "AAAA-MM-DD"
-const DIAS_LIBRES = ["2026-10-26", "2026-10-27", "2026-10-29"];   // semana del 26 oct sin asesorías
+const DIAS_LIBRES = [];
+// Horario especial por fecha: reemplaza el horario normal de ese día ([] = sin asesorías)
+const HORARIO_ESPECIAL = {
+  // Semana del 26 oct: solo miércoles 9–10, jueves 8–10 y viernes 8–10
+  "2026-10-26": [], "2026-10-27": [], "2026-10-28": [9], "2026-10-29": [8, 9], "2026-10-30": [8, 9]
+};
 const MOTIVOS = ["Cómo usar los insumos que compré", "Formulación de un producto nuevo", "Ajuste de una fórmula", "Estandarización de operaciones", "Control de calidad", "Estabilidad y conservación", "Escalar mi producción", "Elegir materia prima", "Emprender con mi marca", "Otro"];
 const TEMAS = ["Formulación", "Ajuste de fórmulas", "Estandarización de operaciones", "Control de calidad", "Estabilidad y conservación", "Escalado de producción", "Materia prima", "Emprendimiento cosmético"];
 const PLANES = [
@@ -187,9 +192,10 @@ function dias() {
   const base = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate());
   const limite = Date.now() - VE + ANTICIPACION_HORAS * 3600e3;
   for (let i = 0; i < SEMANAS * 7; i++) {
-    const t = new Date(base + i * 864e5), wd = t.getUTCDay(), hs = HORARIO[wd];
-    if (!hs) continue;
+    const t = new Date(base + i * 864e5), wd = t.getUTCDay();
     const k = key(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+    const hs = k in HORARIO_ESPECIAL ? HORARIO_ESPECIAL[k] : HORARIO[wd];
+    if (!hs || !hs.length) continue;
     if (DIAS_LIBRES.includes(k)) continue;
     const slots = hs.map(h => ({ h, k, id: `${k} ${pad(h)}`, past: base + i * 864e5 + h * 3600e3 < limite }))
       .map(s => ({ ...s, taken: RESERVADAS.includes(s.id) }));
