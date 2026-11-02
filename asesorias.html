@@ -162,8 +162,8 @@ const PLANES = [
   { dur: 1, nombre: "Asesoría de 1 hora", precio: PRECIO_HORA, incluye: ["Asesoría personalizada de 1 hora", "Resumen por escrito con las recomendaciones"] },
   { dur: 2, nombre: "Pack de 2 horas", precio: PRECIO_PACK, incluye: ["Asesoría personalizada de 2 horas seguidas", "Material de apoyo: plantillas de hoja de lote y de ficha de producto", "Plan de acción por escrito para tu fórmula o tu proceso", "Una consulta de seguimiento por WhatsApp en los 7 días siguientes"] }
 ];
-// Cupones: huella SHA-256 del código en mayúsculas → % de descuento, o {monto: $} para un cupón de valor fijo (así el código no se lee en la página)
-const CUPONES = { "f6b70db6b1f6f8b5d89e63b244ca7dda83f2a4aabe98b9c53d1e9314b075a39d": 10, "323ea5b1e4a1f3129c8c0098ca6c32b6ecf56ddd37d86940c4a448913f711ab0": 15, "7ed4c22e4255caa508cea2b1782e6af341d7876d22116a5d3d0e3903d6a44564": { monto: 30 } };
+// Cupones: huella SHA-256 del código en mayúsculas → % de descuento, {monto: $} para descontar un monto o {total: $} para un precio fijo (así el código no se lee en la página)
+const CUPONES = { "f6b70db6b1f6f8b5d89e63b244ca7dda83f2a4aabe98b9c53d1e9314b075a39d": 10, "323ea5b1e4a1f3129c8c0098ca6c32b6ecf56ddd37d86940c4a448913f711ab0": 15, "7ed4c22e4255caa508cea2b1782e6af341d7876d22116a5d3d0e3903d6a44564": { total: 30 } };
 const COND = [
   "Asesoría de 1 hora: 60 $. Pack de 2 horas: 105 $. Pagaderos en Bs a la tasa BCV del día, por Binance o por Zelle.",
   "Tu hora queda apartada cuando confirmamos el pago.",
@@ -224,8 +224,8 @@ const T = () => TIPOS[S.tipo];
 const clase = () => S.tipo !== "pers";   // asesorías que no se cobran aparte (clase o compra)
 const base = () => clase() ? 0 : S.dur === 2 ? PRECIO_PACK : PRECIO_HORA;
 const dcto = () => clase() ? 0 : S.desc;
-const total = () => { const d = dcto(); return typeof d === "object" ? Math.max(0, Math.round((base() - d.monto) * 100) / 100) : Math.round(base() * (100 - d)) / 100; };
-const descTxt = () => { const d = dcto(); return typeof d === "object" ? `${fmt(d.monto)} de descuento` : `${d} % de descuento`; };
+const total = () => { const d = dcto(); if (typeof d === "object") return d.total != null ? Math.min(base(), d.total) : Math.max(0, Math.round((base() - d.monto) * 100) / 100); return Math.round(base() * (100 - d)) / 100; };
+const descTxt = () => { const d = dcto(); return typeof d === "object" ? (d.total != null ? `precio especial de ${fmt(d.total)}` : `${fmt(d.monto)} de descuento`) : `${d} % de descuento`; };
 const fmt = n => String(n).replace(".", ",") + " $";
 const totalTxt = () => clase() ? "Por confirmar" : fmt(total());
 async function hashCupon(c) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(c)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
