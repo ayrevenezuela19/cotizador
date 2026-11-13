@@ -52,7 +52,11 @@ h2.sec{font-family:var(--display);font-weight:400;font-size:24px;margin:0 0 4px;
 .plan ul{margin:0;padding-left:18px;display:grid;gap:3px;font-size:14px;color:var(--ink)}
 .temas{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:22px}
 .temas .tl{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--soft);margin-right:4px}
-.temas span:not(.tl){background:var(--sunk);border-radius:999px;padding:4px 11px;font-size:13px;font-weight:700;color:var(--soft)}
+.temas button{font:inherit;cursor:pointer;background:var(--sunk);border:1.5px solid transparent;border-radius:999px;padding:5px 12px;font-size:13px;font-weight:700;color:var(--soft)}
+.temas button:hover{border-color:var(--forest)}
+.temas button[aria-pressed="true"]{background:var(--forest);border-color:var(--forest);color:var(--on-forest)}
+.temas button[aria-pressed="true"]::before{content:"✓ "}
+.temas .opt{text-transform:none;letter-spacing:0;font-weight:600}
 .dur button{border:1px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:800;color:var(--soft)}
 .dur button[aria-pressed="true"]{background:var(--forest);border-color:var(--forest);color:var(--on-forest)}
 .week{margin-top:16px}
@@ -173,7 +177,7 @@ const COND = [
 ];
 
 /* ===== Estado ===== */
-const S = { step: 1, dur: 1, tipo: "pers", pick: null, d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", cupon: "", motivo: "", detalle: "" }, err: "", num: "", desc: 0 };
+const S = { step: 1, dur: 1, tipo: "pers", pick: null, temas: [], d: { nombre: "", apellido: "", tel: "", correo: "", modalidad: "Videollamada", curso: "", cupon: "", motivo: "", detalle: "" }, err: "", num: "", desc: 0 };
 try { const s = JSON.parse(localStorage.getItem("ases-ayre") || "null"); if (s && s.d) Object.assign(S.d, s.d); } catch (e) {}
 const save = () => { try { localStorage.setItem("ases-ayre", JSON.stringify({ d: S.d })); } catch (e) {} };
 const $ = s => document.querySelector(s);
@@ -251,7 +255,7 @@ function renderAgenda() {
   const semanas = [];
   ds.forEach(d => { const lunes = new Date(d.t.getTime() - ((d.wd + 6) % 7) * 864e5); const k = lunes.toISOString().slice(0, 10); let w = semanas.find(x => x.k === k); if (!w) semanas.push(w = { k, lunes, days: [] }); w.days.push(d); });
   $("#app").innerHTML = `  <div class="dur" role="group" aria-label="Tipo de asesoría">${Object.entries(TIPOS).map(([k, t]) => `<button type="button" data-tipo="${k}" aria-pressed="${S.tipo === k}">${t.boton}</button>`).join("")}</div>
-  ${clase() ? `<p class="aviso" style="margin-bottom:22px">${T().aviso}</p>` : `<div class="temas"><span class="tl">Temas de asesoría</span>${TEMAS.map(t => `<span>${esc(t)}</span>`).join("")}</div>`}
+  ${clase() ? `<p class="aviso" style="margin-bottom:22px">${T().aviso}</p>` : `<div class="temas" role="group" aria-label="Temas de asesoría"><span class="tl">¿Qué temas quieres ver? <span class="opt">(marca uno o varios)</span></span>${TEMAS.map(t => `<button type="button" data-tema="${esc(t)}" aria-pressed="${S.temas.includes(t)}">${esc(t)}</button>`).join("")}</div>`}
   <div class="grid"><section>
     ${clase() ? "" : `<h2 class="sec">Elige tu asesoría</h2><div class="plans" role="radiogroup" aria-label="Tipo de asesoría">${PLANES.map(p => `<button type="button" role="radio" class="plan${S.dur === p.dur ? " sel" : ""}" data-dur="${p.dur}" aria-checked="${S.dur === p.dur}"><span class="ph"><span class="pn"><i class="ck" aria-hidden="true"></i><b>${p.nombre}</b></span><span class="pp">${p.precio} $</span></span><ul>${p.incluye.map(i => `<li>${esc(i)}</li>`).join("")}</ul></button>`).join("")}</div>`}
     <h2 class="sec">Elige el día y la hora</h2>
@@ -271,7 +275,7 @@ function dayCard(d) {
 }
 function drawSheet() {
   if (!$("#sbody")) return;
-  $("#sbody").innerHTML = S.pick ? `<div class="kv"><span>Día</span><b>${esc(fechaLarga(S.pick.day.t))}</b></div><div class="kv"><span>Hora</span><b>${h12(S.pick.h)} a ${h12(S.pick.h + S.dur)}</b></div><div class="kv"><span>Tipo</span><b>${esc(planTxt())}</b></div>`
+  $("#sbody").innerHTML = S.pick ? `<div class="kv"><span>Día</span><b>${esc(fechaLarga(S.pick.day.t))}</b></div><div class="kv"><span>Hora</span><b>${h12(S.pick.h)} a ${h12(S.pick.h + S.dur)}</b></div><div class="kv"><span>Tipo</span><b>${esc(planTxt())}</b></div>${!clase() && S.temas.length ? `<div class="kv"><span>Temas</span><b>${esc(S.temas.join(", "))}</b></div>` : ""}`
     : `<p class="note" style="margin:0">Elige una hora en la agenda y aquí verás tu reserva.</p>`;
   $("#stot").innerHTML = `<div class="big"><span>Total</span><span>${totalTxt()}</span></div><div class="note">${clase() ? T().verif : "En Bs a tasa BCV del día, Binance o Zelle"}</div><button class="btn" type="button" data-next ${S.pick ? "" : "disabled"}>Continuar con mis datos</button>`;
 }
@@ -308,7 +312,7 @@ function renderForm() {
 function texto() {
   const d = S.d;
   return [`*Reserva de asesoría ${S.num}*`, ``, `Fecha: ${cuando()}`, `Tipo: ${planTxt()}${!clase() && S.dur === 2 ? " (incluye material de apoyo)" : ""}`, clase() ? `${T().campo.msg}: ${d.curso}` : null, `Modalidad: ${d.modalidad}`, clase() ? null : `*Total: ${totalTxt()}*${cup() ? ` (cupón ${cup()}: ${descTxt()} sobre ${fmt(base())})` : ""}`, ``,
-    `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, d.detalle ? `Detalle: ${d.detalle}` : null]
+    `Nombre: ${d.nombre} ${d.apellido}`, `Teléfono: ${d.tel}`, `Correo: ${d.correo}`, `Motivo: ${d.motivo}`, !clase() && S.temas.length ? `Temas: ${S.temas.join(", ")}` : null, d.detalle ? `Detalle: ${d.detalle}` : null]
     .filter(x => x !== null).filter((x, i, a) => !(x === "" && a[i - 1] === "")).join("\n").trim();
 }
 function renderResumen() {
@@ -324,7 +328,7 @@ function renderResumen() {
     <div class="dh"><div><div class="eyebrow">Insumos Ayre · Asesorías</div><h2>Reserva de asesoría</h2></div><div class="meta">N.º <b>${S.num}</b><br>WhatsApp ${WA_TXT}</div></div>
     <div class="when"><b>${esc(cuando())}</b><span>${totalTxt()}</span></div>
     ${cup() ? `<p class="aviso" style="margin:0"><b>Cupón ${esc(cup())} aplicado:</b> ${descTxt()} sobre ${fmt(base())}.</p>` : ""}
-    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Tipo</dt><dd>${esc(planTxt())}${clase() ? " · " + esc(d.curso) : ""}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div></dl>
+    <dl class="cli"><div><dt>Nombre</dt><dd>${esc(d.nombre)} ${esc(d.apellido)}</dd></div><div><dt>Teléfono</dt><dd>${esc(d.tel)}</dd></div><div><dt>Correo</dt><dd>${esc(d.correo)}</dd></div><div><dt>Tipo</dt><dd>${esc(planTxt())}${clase() ? " · " + esc(d.curso) : ""}</dd></div><div><dt>Modalidad</dt><dd>${esc(d.modalidad)}</dd></div><div><dt>Motivo</dt><dd>${esc(d.motivo)}</dd></div>${!clase() && S.temas.length ? `<div><dt>Temas</dt><dd>${esc(S.temas.join(", "))}</dd></div>` : ""}</dl>
     ${d.detalle ? `<p style="margin:0"><b>Detalle:</b> ${esc(d.detalle)}</p>` : ""}
     <ul class="cond">${(clase() ? COND.filter((c, i) => i > 1) : COND).map(c => `<li>${esc(c)}</li>`).join("")}</ul>
   </article>
@@ -337,6 +341,7 @@ function renderResumen() {
 /* ===== Eventos ===== */
 document.addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.tema) { const t = b.dataset.tema; S.temas = S.temas.includes(t) ? S.temas.filter(x => x !== t) : [...S.temas, t]; b.setAttribute("aria-pressed", S.temas.includes(t)); drawSheet(); return; }
   if (b.dataset.tipo) { S.tipo = b.dataset.tipo; if (clase()) S.dur = 1; renderAgenda(); bars(); return; }
   if (b.dataset.dur) { S.dur = Number(b.dataset.dur); if (S.pick) { const day = dias().find(d => d.k === S.pick.day.k); if (!day || !puede(day, S.pick.h)) { S.pick = null; toast("Esa hora no tiene 2 horas seguidas libres"); } } renderAgenda(); bars(); return; }
   if (b.dataset.k) { const day = dias().find(d => d.k === b.dataset.k), h = Number(b.dataset.h); if (day && puede(day, h)) { S.pick = { day, h }; document.querySelectorAll(".slot").forEach(x => x.setAttribute("aria-pressed", x === b)); drawSheet(); bars(); } return; }
